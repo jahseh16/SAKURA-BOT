@@ -1,5 +1,5 @@
 {
-  "name": "ai-lurus-nym",
+  "name": "SAKURA-BOT-MD",
   "version": "1.0.0",
   "description": "Bot de WhatsApp multifunción con descarga de TikTok sin marca de agua y sistema AI integrado.",
   "main": "main.js",
@@ -11,7 +11,7 @@
     "eslint": "eslint .",
     "eslintfix": "eslint --fix ."
   },
-  "author": "Maycol Pisco (JAHSEH)",
+  "author": "(JAHSEH_HC)",
   "license": "MIT",
   "dependencies": {
     "@hapi/boom": "^10.0.0",
