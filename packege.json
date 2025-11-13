@@ -5,11 +5,11 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "start": "node main.js",                           
-    "update": "git pull origin main && npm install",   
+    "start": "node main.js",
+    "update": "git pull origin main && npm install",
     "update-and-start": "git pull origin main && npm install && node main.js",
-    "eslint": "eslint .",                              
-    "eslintfix": "eslint --fix ."                      
+    "eslint": "eslint .",
+    "eslintfix": "eslint --fix ."
   },
   "author": "Maycol Pisco (JAHSEH)",
   "license": "MIT",
