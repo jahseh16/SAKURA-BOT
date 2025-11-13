@@ -1,8 +1,8 @@
 /**
  * ================================
- *        Mini Lurus - WaBot
+ *        sakura-bot-md
  * ================================
- * Creado por: Carlos Alexis (Zam)
+ * Creado por: jahseh-hc
  * Año: 2025
  * Librería: Baileys
  * ================================
@@ -19,6 +19,7 @@ const { Boom } = require("@hapi/boom");
 const { exec } = require("child_process");
 const { smsg } = require("./lib/message");
 const { app, server } = require("./lib/server");
+const readline = require("readline");
 
 process.setMaxListeners(0); // 🚀 Evita retardos por listeners acumulados
 
@@ -51,6 +52,32 @@ print("Memoria", `${(os.freemem() / 1024 / 1024).toFixed(0)} MiB / ${(os.totalme
 print("Fecha", new Date().toLocaleString("es-ES", { timeZone: "America/Mexico_City" }));
 console.log(chalk.yellow.bold("╚" + "═".repeat(45)));
 
+// Función para hacer preguntas al usuario
+const question = (text) => {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    rl.question(text, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+};
+
+// 📋 MENÚ DE SELECCIÓN
+async function showMenu() {
+  console.log(chalk.cyan.bold("\n╔════════════════════════════════╗"));
+  console.log(chalk.cyan.bold("║   MÉTODO DE VINCULACIÓN        ║"));
+  console.log(chalk.cyan.bold("╚════════════════════════════════╝\n"));
+  console.log(chalk.white("  1️⃣  ") + chalk.greenBright("QR Code (escanear)"));
+  console.log(chalk.white("  2️⃣  ") + chalk.yellowBright("Código de 8 dígitos\n"));
+  
+  const choice = await question(chalk.magenta("Elige una opción (1 o 2): "));
+  return choice.trim();
+}
+
 ;(async () => {
   const baileys = await import("@whiskeysockets/baileys");
   const {
@@ -62,25 +89,70 @@ console.log(chalk.yellow.bold("╚" + "═".repeat(45)));
     DisconnectReason,
   } = baileys;
 
+  // Variable global para el método elegido
+  let usePairingCode = false;
+  let menuShown = false;
+
   async function startBot() {
+    // ✅ Corrección: Crear carpeta de sesión si no existe
+    if (!fs.existsSync("./lurus_session")) {
+      fs.mkdirSync("./lurus_session", { recursive: true });
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState("./lurus_session");
     const { version } = await fetchLatestBaileysVersion();
+
+    // 🔍 Verificar si ya hay sesión activa
+    const hasSession = fs.existsSync("./lurus_session/creds.json");
+
+    // Si no hay sesión, mostrar menú
+    if (!hasSession && !menuShown) {
+      const choice = await showMenu();
+      usePairingCode = choice === "2";
+      menuShown = true;
+    }
 
     const client = makeWASocket({
       version,
       logger: pino({ level: "silent" }),
-      browser: ["Mini Lurus", "Chrome", "1.0.0"],
-      printQRInTerminal: false,
+      browser: ["Chrome (Linux)", "", ""],
+      printQRInTerminal: !usePairingCode, // Solo muestra QR si eligió opción 1
       auth: state,
     });
 
-    // 📱 QR
-    client.ev.on("connection.update", (update) => {
+    // 📱 Gestión de vinculación
+    client.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect, qr } = update;
-      if (qr) {
+
+      // 🔐 Opción 2: Código de emparejamiento
+      if (usePairingCode && !client.authState.creds.registered) {
+        console.log(chalk.cyan("\n📞 Ingresa tu número de WhatsApp (con código de país, sin +):"));
+        console.log(chalk.yellow("Ejemplo: 521234567890 (México) o 51987654321 (Perú)\n"));
+        const phoneNumber = (await question("Número: ")).replace(/\D/g, "");
+
+        try {
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Esperar 3 segundos
+          
+          const code = await client.requestPairingCode(phoneNumber);
+          const formattedCode = code.match(/.{1,4}/g)?.join("-") || code;
+          
+          console.log(chalk.bgGreen.white.bold("\n╔═══════════════════════════════╗"));
+          console.log(chalk.bgGreen.white.bold("║   🔑 CÓDIGO DE VINCULACIÓN   ║"));
+          console.log(chalk.bgGreen.white.bold("╚═══════════════════════════════╝\n"));
+          console.log(chalk.greenBright.bold(`        ${formattedCode}\n`));
+          console.log(chalk.cyan("👉 WhatsApp → Dispositivos vinculados"));
+          console.log(chalk.cyan("👉 Vincular con número de teléfono"));
+          console.log(chalk.cyan("👉 Ingresa el código de 8 dígitos\n"));
+        } catch (err) {
+          log.error(`Error al solicitar código: ${err.message}`);
+        }
+      }
+
+      // 📱 Opción 1: QR Code
+      if (qr && !usePairingCode) {
         console.log(chalk.yellowBright("\n📱 Escanea este QR con tu WhatsApp:\n"));
         qrcode.generate(qr, { small: true });
-        console.log(chalk.greenBright("\n👉 WhatsApp → Dispositivos vinculados → Vincular un dispositivo.\n"));
+        console.log(chalk.greenBright("\n👉 WhatsApp → Dispositivos vinculados → Vincular un dispositivo\n"));
       }
 
       if (connection === "close") {
